@@ -1,3 +1,4 @@
+
 'use strict';
 const fetchJsonFile = await fetch('./api.json');
 const DID_API = await fetchJsonFile.json();
@@ -83,17 +84,7 @@ async function createPeerConnection(offer, iceServers) {
     let msgType = 'chat/answer:';
     if (msg.includes(msgType)) {
       msg = decodeURIComponent(msg.replace(msgType, ''));
-      console.log('Full agent response:', msg);
-      try {
-        // Try to parse the response as JSON to see if it contains knowledge base citations
-        const parsedMsg = JSON.parse(msg);
-        if (parsedMsg.citations) {
-          console.log('Knowledge base citations:', parsedMsg.citations);
-        }
-      } catch (e) {
-        // If parsing fails, it's just a plain text response
-        console.log('Plain text response (no citations detected)');
-      }
+      console.log(msg);
       decodedMsg = msg;
       return decodedMsg;
     }
@@ -399,21 +390,19 @@ async function agentsAPIworkflow() {
   // Retry Mechanism (Polling) for this demo only - Please use Webhooks in real life applications!
   // as described in https://docs.d-id.com/reference/knowledge-overview#%EF%B8%8F-step-2-add-documents-to-the-knowledge-base
   async function retry(url, retries = 1) {
-    const maxRetryCount = 10; // Increased from 5 to 10
-    const maxDelaySec = 20; // Increased from 10 to 20 seconds
+    const maxRetryCount = 5; // Maximum number of retries
+    const maxDelaySec = 10; // Maximum delay in seconds
     try {
       let response = await axios.get(`${url}`);
       if (response.data.status == 'done') {
         return console.log(response.data.id + ': ' + response.data.status);
       } else {
-        console.log(`Current status: ${response.data.status} (Attempt ${retries}/${maxRetryCount})`);
         throw new Error("Status is not 'done'");
       }
     } catch (err) {
       if (retries <= maxRetryCount) {
         const delay = Math.min(Math.pow(2, retries) / 4 + Math.random(), maxDelaySec) * 1000;
 
-        console.log(`Waiting ${Math.round(delay/1000)} seconds before next retry...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
 
         console.log(`Retrying ${retries}/${maxRetryCount}. ${err}`);
@@ -441,9 +430,9 @@ async function agentsAPIworkflow() {
   // https://docs.d-id.com/reference/knowledge-overview#%EF%B8%8F-step-2-add-documents-to-the-knowledge-base
 
   const createDocument = await axios.post(`/knowledge/${knowledgeId}/documents`, {
-    documentType: 'text',
-    source_url: 'https://docs.google.com/document/d/186EfDbCjE6AJbjYDylkR4bCK6tqlJI9R/edit?usp=sharing&ouid=113772429239220858827&rtpof=true&sd=true',
-    title: 'Acolyte-1',
+    documentType: 'pdf',
+    source_url: 'https://d-id-public-bucket.s3.us-west-2.amazonaws.com/Prompt_engineering_Wikipedia.pdf',
+    title: 'Prompt Engineering Wikipedia Page PDF',
   });
   console.log('Create Document: ', createDocument.data);
 
@@ -455,9 +444,8 @@ async function agentsAPIworkflow() {
 
   // Knowledge Overview - Step 3: Retrieving the Document and Knowledge status
   // https://docs.d-id.com/reference/knowledge-overview#%EF%B8%8F-step-3-retrieving-the-document-and-knowledge-status
-  await retry(`https://api.d-id.com/knowledge/${knowledgeId}/documents/${documentId}`);
-  //https://api.d-id.com/knowledge/knl_6nDc-Fh6eiNx2Cko95qwy/documents
-  await retry(`https://api.d-id.com/knowledge/${knowledgeId}`);
+  await retry(`/knowledge/${knowledgeId}/documents/${documentId}`);
+  await retry(`/knowledge/${knowledgeId}`);
 
   // Agents Overview - Step 1: Create an Agent
   // https://docs.d-id.com/reference/agents-overview#%EF%B8%8F-step-1-create-an-agent
@@ -468,7 +456,7 @@ async function agentsAPIworkflow() {
         provider: 'azure-open-ai',
         model: 'text-embedding-ada-002',
       },
-      id: knowledgeId,
+      id: "knl_Ezw8FsGLQJCB295Rdi6sc",
     },
     presenter: {
       type: 'talk',
